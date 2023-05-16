@@ -8,7 +8,6 @@ import {
   DEFAULT_PDF_OPTION_FORMAT,
   DEFAULT_PDF_OPTION_LANDSCAPE,
   DEFAULT_PDF_OPTION_MARGIN,
-  DEFAULT_PDF_OPTION_PRINT_BACKGROUND,
 } from '../../config'
 
 const defaultMargin: PDFMargin = {
@@ -23,7 +22,7 @@ export const PresetPDFOptions: { [key: string]: PDFOptions } = {
     format: DEFAULT_PDF_OPTION_FORMAT,
     landscape: DEFAULT_PDF_OPTION_LANDSCAPE,
     margin: defaultMargin,
-    printBackground: DEFAULT_PDF_OPTION_PRINT_BACKGROUND,
+    printBackground: true,
   },
   A4: {
     format: 'a4',
