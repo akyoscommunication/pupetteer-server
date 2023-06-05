@@ -54,6 +54,10 @@ COPY --chown=pptruser:pptruser package.json \
   tsconfig.eslint.json \
   .prettierrc.js \
   /app/
+  
+RUN chmod 755 dist
+RUN chmod 755 tsc
+
 RUN yarn build
 
 # Run everything after as non-privileged user.
