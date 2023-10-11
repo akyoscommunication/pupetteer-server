@@ -50,15 +50,18 @@ export const PresetPDFOptions: { [key: string]: PDFOptions } = {
     format: 'a4',
     landscape: false,
     margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+    printBackground: true,
   },
   bottommargin: {
     format: 'a4',
     landscape: false,
     margin: { top: '0mm', bottom: '0.5cm', left: '0mm', right: '0mm' },
+    printBackground: true,
   },
   landscape: {
     format: 'a4',
     landscape: true,
     margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+    printBackground: true,
   },
 }
