@@ -64,4 +64,10 @@ export const PresetPDFOptions: { [key: string]: PDFOptions } = {
     margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
     printBackground: true,
   },
+  A4headerfooter: {
+    format: 'a4',
+    margin: { top: '40mm', bottom: '30mm', left: '0.5cm', right: '0.5cm' },
+    printBackground: true,
+    displayHeaderFooter: true,
+  },
 }

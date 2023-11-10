@@ -1,29 +1,34 @@
 import fastify, { FastifyInstance } from 'fastify'
+import * as cheerio from 'cheerio'
+import axios, { AxiosError, AxiosResponse } from 'axios'
+import https from 'https'
 import formBody from '@fastify/formbody'
 import bearerAuthPlugin from '@fastify/bearer-auth'
-import { Page, BrowserLaunchArgumentOptions } from 'puppeteer'
+import { BrowserLaunchArgumentOptions, Page } from 'puppeteer'
 import { hcPages } from '@uyamazak/fastify-hc-pages'
 import { hcPDFOptionsPlugin } from './plugins/pdf-options'
 import { AppConfig, GetQuerystring, PostBody } from './types/hc-pdf-server'
 import {
-  DEFAULT_PRESET_PDF_OPTIONS_NAME,
-  BEARER_AUTH_SECRET_KEY,
-  PAGES_NUM,
-  USER_AGENT,
-  PAGE_TIMEOUT_MILLISECONDS,
-  PRESET_PDF_OPTIONS_FILE_PATH,
-  EMULATE_MEDIA_TYPE_SCREEN_ENABLED,
   ACCEPT_LANGUAGE,
-  FASTIFY_LOG_LEVEL,
-  FASTIFY_BODY_LIMIT,
-  DEFAULT_VIEWPORT,
+  BEARER_AUTH_SECRET_KEY,
   BROWSER_LAUNCH_ARGS,
+  DEFAULT_PRESET_PDF_OPTIONS_NAME,
+  DEFAULT_VIEWPORT,
+  EMULATE_MEDIA_TYPE_SCREEN_ENABLED,
+  FASTIFY_BODY_LIMIT,
+  FASTIFY_LOG_LEVEL,
+  PAGE_TIMEOUT_MILLISECONDS,
+  PAGES_NUM,
+  PRESET_PDF_OPTIONS_FILE_PATH,
+  USER_AGENT,
 } from './config'
 
 const getSchema = {
   querystring: {
     url: { type: 'string' },
     pdf_option: { type: ['null', 'string'] },
+    header: { type: ['null', 'string'] },
+    footer: { type: ['null', 'string'] },
   },
 }
 
@@ -31,6 +36,8 @@ const postSchema = {
   body: {
     html: { type: 'string' },
     pdf_option: { type: ['null', 'string'] },
+    header: { type: ['null', 'string'] },
+    footer: { type: ['null', 'string'] },
   },
 }
 
@@ -95,9 +102,7 @@ export const app = async (
     acceptLanguage,
     viewport,
   }
-  console.debug('pageOptions:', pageOptions)
   const launchOptions = buildBrowserLaunchArgs()
-  console.debug('launchOptions:', launchOptions)
   server.register(hcPages, {
     pagesNum,
     pageOptions,
@@ -124,8 +129,43 @@ export const app = async (
       const buffer = await server.runOnPage<Buffer>(async (page: Page) => {
         await page.goto(url)
         const pdfOptions = server.getPDFOptions(pdfOptionsQuery)
-        const buffer = await page.pdf(pdfOptions)
-        return buffer
+
+        const header = request.query.header ?? false
+        const footer = request.query.footer ?? false
+
+        if (header) {
+          pdfOptions.displayHeaderFooter = true
+
+          const $ = cheerio.load(header)
+          const imgElement = $('img')
+
+          if (imgElement.length > 0) {
+            const imgUrl = imgElement.attr('src')
+            if (imgUrl !== undefined) {
+              const imgBase64 = await getImageBase64(imgUrl)
+              imgElement.attr('src', `data:image/png;base64,${imgBase64}`)
+            }
+          }
+          pdfOptions.headerTemplate = $.html()
+        }
+
+        if (footer) {
+          pdfOptions.displayHeaderFooter = true
+
+          const $ = cheerio.load(footer)
+          const imgElement = $('img')
+
+          if (imgElement.length > 0) {
+            const imgUrl = imgElement.attr('src')
+            if (imgUrl !== undefined) {
+              const imgBase64 = await getImageBase64(imgUrl)
+              imgElement.attr('src', `data:image/png;base64,${imgBase64}`)
+            }
+          }
+          pdfOptions.footerTemplate = $.html()
+        }
+
+        return await page.pdf(pdfOptions)
       })
       reply.headers(createPDFHttpHeader(buffer))
       reply.send(buffer)
@@ -167,8 +207,7 @@ export const app = async (
     try {
       const buffer = await server.runOnPage<Buffer>(async (page: Page) => {
         await page.setContent(html, { waitUntil: ['domcontentloaded'] })
-        const buffer = await page.pdf(pdfOptions)
-        return buffer
+        return await page.pdf(pdfOptions)
       })
       reply.headers(createPDFHttpHeader(buffer))
       reply.send(buffer)
@@ -182,6 +221,28 @@ export const app = async (
   server.get('/pdf_options', (_, reply) => {
     reply.send(server.getPresetPDFOptions())
   })
+
+  async function getImageBase64(url: string): Promise<string> {
+    // Implémentez la logique pour récupérer l'image depuis l'URL et la transformer en base64
+    try {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const response: AxiosResponse<ArrayBuffer> = await axios.get(url, {
+        responseType: 'arraybuffer',
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+      })
+
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const imgBuffer: Buffer = Buffer.from(response.data, 'binary')
+      return imgBuffer.toString('base64')
+    } catch (error) {
+      console.error("Erreur lors du téléchargement de l'image :", error)
+      throw error as AxiosError // Gérez l'erreur selon vos besoins
+    }
+  }
 
   return server
 }
